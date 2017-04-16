@@ -68,9 +68,10 @@ def forwardRequest(fd, sock, request):
 			logging.info("sending to client sock {}".format(fd_client))
 			hold = time.perf_counter()
 			sk_client.sendall(request)
+			realtime = time.perf_counter() - hold
 			logging.info(
-				"REAL TP: {}"
-				.format(len(request)/(time.perf_counter() - hold))
+				"REAL TP: {}bps"
+				.format(len(request)/(1000*realtime))
 			)
 
 		except Exception as ex:
