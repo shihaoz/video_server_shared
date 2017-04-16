@@ -19,9 +19,10 @@ bitrate = []  # list of available bitrate
 def readF4M(request):
 	""" read request from server """
 	logging.info("reading f4M")
-	if request.find(b"text/xml"):
+	if request.find(b"text/xml") != -1:
 		""" this is a f4m """
 		logging.info("this is a f4m")
+		logging.info(request.decode('utf-8'))
 		if len(bitrate) == 0:
 			""" 1st time see f4m, read the available bitrate """
 			rates = re.findall(b'bitrate="([0-9]+)"', request)
