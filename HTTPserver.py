@@ -7,6 +7,7 @@ import socket
 import sys
 import re
 import logging
+import time
 
 print("log file: {}, log level: {}".format(config.log_file, config.log_level))
 logging.info(
@@ -65,7 +66,12 @@ def forwardRequest(fd, sock, request):
 		request = request_filter.readF4M(bitrate, request)
 		try:
 			logging.info("sending to client sock {}".format(fd_client))
+			hold = time.perf_counter()
 			sk_client.sendall(request)
+			logging.info(
+				"REAL TP: {}"
+				.format(len(request)/(time.perf_counter() - hold))
+			)
 
 		except Exception as ex:
 			print('error:{}'.format(ex), file=sys.stderr)

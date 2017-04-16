@@ -30,7 +30,6 @@ def modifyBitrate(request, fd, bitrate, fd_to_tp):
 		if len(bitrate) == 0:
 			logging.debug("ERROR: bitrate is not ready yet;")
 			return request
-		logging.info("fd: {}, fd_to_tp: {}".format(fd, fd_to_tp))
 		br_client = 0
 		if fd in fd_to_tp:
 			# maximum bitrate for this client
