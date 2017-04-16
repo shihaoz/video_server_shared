@@ -38,7 +38,7 @@ def readF4M(bitrate, host, port):
 		for rate in rates:
 			bitrate.append(int(rate.decode('utf-8')))
 			logging.info("bitrate append:{}".format(bitrate))
-		bitrate = sorted(bitrate)
+			bitrate = sorted(bitrate)
 	return
 
 
