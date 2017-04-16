@@ -1,6 +1,6 @@
 import time
 import logging
-import common
+from util import common
 
 
 def time1st(fd_to_tp, fd):
