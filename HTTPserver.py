@@ -72,6 +72,7 @@ def modifyBitrate(request, fd):
 		if len(bitrate) == 0:
 			logging.debug("ERROR: bitrate is not ready yet;")
 			return request
+		logging.info("fd: {}, fd_to_tp: {}".format(fd, fd_to_tp))
 		br_client = fd_to_tp[fd][0] * 2 / 3  # maximum bitrate for this client
 		br_chosen = 0
 		for br in bitrate:
@@ -104,6 +105,7 @@ def time2nd(fd_to_tp, fd, size_bits):
 	T_new = size_bits/(now_time - last_time)
 	logging.info("chunk size_bits: {}, time1: {}, time2: {}".format(size_bits, last_time, now_time))
 	T_cur = ALPHA*(T_new) + (1 - ALPHA) * T_cur
+	fd_to_tp[fd] = (T_cur, 0)
 	logging.info("sock: {}| throughput: {}".format(fd, T_cur))
 
 
