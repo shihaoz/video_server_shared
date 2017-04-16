@@ -19,7 +19,7 @@ bitrate = []  # list of available bitrate
 def readF4M(request):
 	""" read request from server """
 	logging.info("reading f4M")
-	if request.find(b"/vod/big_buck_bunny.f4m"):
+	if request.find(b"text/xml"):
 		""" this is a f4m """
 		logging.info("this is a f4m")
 		if len(bitrate) == 0:
