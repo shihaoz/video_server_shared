@@ -76,6 +76,9 @@ def modifyBitrate(request, fd):
 		for br in bitrate:
 			if br <= br_client and br > br_chosen:
 				br_chosen = br
+		if br_chosen < bitrate[0]:
+			""" maintain the mininal bitrate """
+			br_chosen = bitrate[0]
 		old_chunk = re.search(b'/[0-9]+Seg', request).group()
 		new_chunk = "/{}Seg".format(br_chosen).encode('utf-8')
 		logging.info("from {} to {}".format(old_chunk, new_chunk))
@@ -92,12 +95,12 @@ def time1st(fd_to_tp, fd):
 		fd_to_tp[fd] = (0, time.perf_counter())
 
 
-def time2nd(fd_to_tp, fd, size):
+def time2nd(fd_to_tp, fd, size_bits):
 	"""call when recevied response from server"""
 	T_cur, last_time = fd_to_tp[fd]
 	now_time = time.perf_counter()
-	T_new = size/(now_time - last_time)
-	logging.info("chunk size: {}, time1: {}, time2: {}".format(size, last_time, now_time))
+	T_new = size_bits/(now_time - last_time)
+	logging.info("chunk size_bits: {}, time1: {}, time2: {}".format(size_bits, last_time, now_time))
 	T_cur = ALPHA*(T_new) + (1 - ALPHA) * T_cur
 	logging.info("sock: {}| throughput: {}".format(fd, T_cur))
 
