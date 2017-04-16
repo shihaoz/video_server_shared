@@ -64,7 +64,7 @@ def readSocket(sock):
 
 def modifyBitrate(request, fd):
 	logging.info("modifying birate")
-	if request.find(b'-Frag'):
+	if request.find(b'-Frag') != -1:
 		''' this is a chunk request'''
 		logging.info("this is a chunk request")
 		if len(bitrate) == 0:
