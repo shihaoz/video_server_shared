@@ -112,7 +112,7 @@ def cleanup_socket(sock):
 
 # fetching f4m file from server
 request_filter.readF4M(bitrate, target_addr[0], target_addr[1])
-
+print('bitrate now: {}'.format(bitrate))
 # setup socket
 sk_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sk_server.bind(addr_server)
