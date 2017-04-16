@@ -1,3 +1,5 @@
 test*
 \#*
 .*
+proxy.log
+__*
