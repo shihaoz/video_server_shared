@@ -14,7 +14,10 @@ logging.info(
 	"log file: {}, log level: {}"
 	.format(config.log_file, config.log_level)
 )
-
+# listening address
+addr_server = ('10.0.0.1', 5000)
+# apache server info
+target_addr = ('10.0.0.1', 80)
 fd_to_socket = {}  # fd : socket object
 fd_to_tp = {}  # fd: (T_cur, last time)
 server_to_client = {}  # server_fd : client_fd
@@ -62,8 +65,6 @@ def forwardRequest(fd, sock, request):
 		measure.time2nd(fd_to_tp, fd_client, len(request))
 		# send response to client
 		print("sending to client sock {}".format(fd_client))
-		# check f4m
-		request = request_filter.readF4M(bitrate, request)
 		try:
 			logging.info("sending to client sock {}".format(fd_client))
 			hold = time.perf_counter()
@@ -79,6 +80,7 @@ def forwardRequest(fd, sock, request):
 
 	else:
 		""" request from client """
+		request = request_filter.modifyF4M(request)
 		request = request_filter.modifyBitrate(request, fd, bitrate, fd_to_tp)
 		measure.time1st(fd_to_tp, fd)  # time the client request
 		fd_relay = client_to_server[fd]
@@ -108,13 +110,13 @@ def cleanup_socket(sock):
 		del client_to_server[fd]
 
 
-
+# fetching f4m file from server
+request_filter.readF4M(bitrate, target_addr[0], target_addr[1])
 
 # setup socket
 sk_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-addr_server = ('10.0.0.1', 5000)
 sk_server.bind(addr_server)
-fd_to_socket = {sk_server.fileno(): sk_server}  # map the fd to socket object
+fd_to_socket[sk_server.fileno()] = sk_server  # map the fd to socket object
 
 # listen
 print('listening on {}:{}'.format(addr_server[0], addr_server[1]))
@@ -123,10 +125,6 @@ sk_server.listen(10)
 # polling
 poller = select.poll()
 poller.register(sk_server, select.POLLIN)  # register server with POLLIN flag
-
-# apache server info
-target_addr = ('10.0.0.1', 80)
-
 
 while True:
 	print('event loop')
