@@ -1,5 +1,5 @@
 import util.config as config  # must import first to use logging correctly
-import util.time as time
+import util.measure as measure
 import util.common as common
 import util.request_filter as request_filter
 import select
@@ -58,7 +58,7 @@ def forwardRequest(fd, sock, request):
 		fd_client = server_to_client[fd]  # get client fd
 		sk_client = fd_to_socket[fd_client]  # get client socket
 		# time the server response on client
-		time.time2nd(fd_to_tp, fd_client, len(request))
+		measure.time2nd(fd_to_tp, fd_client, len(request))
 		# send response to client
 		print("sending to client sock {}".format(fd_client))
 		# check f4m
@@ -73,7 +73,7 @@ def forwardRequest(fd, sock, request):
 	else:
 		""" request from client """
 		request = request_filter.modifyBitrate(request, fd, bitrate, fd_to_tp)
-		time.time1st(fd_to_tp, fd)  # time the client request
+		measure.time1st(fd_to_tp, fd)  # time the client request
 		fd_relay = client_to_server[fd]
 		sk_relay = fd_to_socket[fd_relay]
 		try:
