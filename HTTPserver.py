@@ -13,7 +13,7 @@ fd_to_socket = {}  # fd : socket object
 fd_to_tp = {}  # fd: (T_cur, last time)
 server_to_client = {}  # server_fd : client_fd
 client_to_server = {}  # client_fd : server_fd
-bitrate = []  # list of available bitrate
+bitrate = []  # list of sorted available bitrate
 
 
 def readF4M(request):
@@ -29,6 +29,7 @@ def readF4M(request):
 			logging.info("bitrates available: {}".format(rates))
 			for rate in rates:
 				bitrate.append(int(rate.decode('utf-8')))
+			bitrate = sorted(bitrate)
 		request = request.replace(b'big_buck_bunny.f4m',
 		                          b'big_buck_bunny_nolist.f4m')
 	return request
@@ -79,6 +80,7 @@ def modifyBitrate(request, fd):
 		if br_chosen < bitrate[0]:
 			""" maintain the mininal bitrate """
 			br_chosen = bitrate[0]
+		logging.info("client tp: {}, chosen tp: {}".format(br_client, br_chosen))
 		old_chunk = re.search(b'/[0-9]+Seg', request).group()
 		new_chunk = "/{}Seg".format(br_chosen).encode('utf-8')
 		logging.info("from {} to {}".format(old_chunk, new_chunk))
