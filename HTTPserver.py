@@ -68,7 +68,7 @@ def modifyBitrate(request, fd):
 		''' this is a chunk request'''
 		logging.info("this is a chunk request")
 		if len(bitrate) == 0:
-			logging.DEBUG("ERROR: bitrate is not ready yet;")
+			logging.debug("ERROR: bitrate is not ready yet;")
 			return request
 		br_client = fd_to_tp[fd] * 2 / 3  # maximum bitrate for this client
 		br_chosen = 0
