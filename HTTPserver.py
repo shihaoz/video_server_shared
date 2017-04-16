@@ -193,7 +193,7 @@ while True:
 					""" client close """
 					print("client closing from {}".format(sock.getpeername()))
 					poller.unregister(sock)  # unregister from poll
-					del fd_to_socket  # remove from map
+					del fd_to_socket[fd]  # remove from map
 					sock.close()
 
 		elif flag & (select.POLLHUP):
