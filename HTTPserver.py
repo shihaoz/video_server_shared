@@ -161,7 +161,12 @@ while True:
 				else:  # recv == 0
 					""" client close """
 					print("client closing from {}".format(sock.getpeername()))
+					if fd in client_to_server:
+						# clean up server first
+						server_fd = client_to_server[fd]
+						cleanup_socket(fd_to_socket[server_fd])
 					cleanup_socket(sock)
+
 
 		elif flag & (select.POLLHUP):
 			print('client hung up from {}'.format(sock.getpeername()),
