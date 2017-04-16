@@ -17,11 +17,20 @@ bitrate = []  # list of available bitrate
 
 
 def readF4M(request):
+	""" read request from server """
+	logging.info("reading f4M")
 	if request.find(b"/vod/big_buck_bunny.f4m"):
 		""" this is a f4m """
-		return True
-	else:
-		return False
+		logging.info("this is a f4m")
+		if len(bitrate) == 0:
+			""" 1st time see f4m, read the available bitrate """
+			rates = re.findall(b'bitrate="([0-9]+)"', request)
+			logging.info("bitrates available: {}".format(rates))
+			for rate in rates:
+				bitrate.append(int(rate.decode('utf-8')))
+		request = request.replace(b'big_buck_bunny.f4m',
+		                          b'big_buck_bunny_nolist.f4m')
+	return request
 
 
 def readSocket(sock):
@@ -53,6 +62,26 @@ def readSocket(sock):
 	return buffer
 
 
+def modifyBitrate(request, fd):
+	logging.info("modifying birate")
+	if request.find(b'-Frag'):
+		''' this is a chunk request'''
+		logging.info("this is a chunk request")
+		if len(bitrate) == 0:
+			logging.DEBUG("ERROR: bitrate is not ready yet;")
+			return request
+		br_client = fd_to_tp[fd] * 2 / 3  # maximum bitrate for this client
+		br_chosen = 0
+		for br in bitrate:
+			if br <= br_client and br > br_chosen:
+				br_chosen = br
+		old_chunk = re.search(b'/[0-9]+Seg', request).group()
+		new_chunk = "/{}Seg".format(br_chosen).encode('utf-8')
+		logging.info("from {} to {}".format(old_chunk, new_chunk))
+		request = request.replace(old_chunk, new_chunk)
+	return request
+
+
 def time1st(fd_to_tp, fd):
 	"""@param(dictionary, socket fd)  ==> @return(None)"""
 	# call when received client request
@@ -72,33 +101,36 @@ def time2nd(fd_to_tp, fd, size):
 	logging.info("sock: {}| throughput: {}".format(fd, T_cur))
 
 
-def forwardRequest(fd, sock):
+def forwardRequest(fd, sock, request):
 	if fd in server_to_client:
 		""" response from server """
-		time2nd(fd_to_tp, fd, len(request))
+		fd_client = server_to_client[fd]  # get client fd
+		sk_client = fd_to_socket[fd_client]  # get client socket
+		# time the server response on client
+		time2nd(fd_to_tp, fd_client, len(request))
+		# send response to client
+		print("sending to client sock {}".format(fd_client))
+		# check f4m
+		request = readF4M(request)
 		try:
-			# send response to client
-			fd_client = server_to_client[fd]  # get client fd
-			sk_client = fd_to_socket[fd_client]  # get client socket
-			print("sending to client sock {}".format(fd_client))
 			logging.info("sending to client sock {}".format(fd_client))
 			sk_client.sendall(request)
 
 		except Exception as ex:
 			print('error:{}'.format(ex), file=sys.stderr)
 
-		else:
-			time1st(fd_to_tp, fd)
-			""" request from client """
-			fd_relay = client_to_server[fd]
-			sk_relay = fd_to_socket[fd_relay]
-			try:
-				"""relaying request"""
-				logging.info("forwarding request from client {}".format(fd_relay))
-				sk_relay.sendall(request)  # send request to server
-			except Exception as ex:
-				print("connect error:{}".format(ex), file=sys.stderr)
-
+	else:
+		""" request from client """
+		request = modifyBitrate(request, fd)
+		time1st(fd_to_tp, fd)  # time the client request
+		fd_relay = client_to_server[fd]
+		sk_relay = fd_to_socket[fd_relay]
+		try:
+			"""relaying request"""
+			logging.info("forwarding request from client {} to server {}".format(fd, fd_relay))
+			sk_relay.sendall(request)  # send request to server
+		except Exception as ex:
+			print("connect error:{}".format(ex), file=sys.stderr)
 
 
 # setup socket
@@ -154,33 +186,7 @@ while True:
 				request = readSocket(sock)
 				if request:
 					""" forward the request """
-					if fd in server_to_client:
-						""" response from server """
-						fd_client = server_to_client[fd]  # get client fd
-						sk_client = fd_to_socket[fd_client]  # get client socket
-						# measure throughput on client
-						time2nd(fd_to_tp, fd_client, len(request))
-						# send response to client
-						print("sending to client sock {}".format(fd_client))
-						try:
-							logging.info("sending to client sock {}".format(fd_client))
-							sk_client.sendall(request)
-
-						except Exception as ex:
-							print('error:{}'.format(ex), file=sys.stderr)
-
-					else:
-							""" request from client """
-							time1st(fd_to_tp, fd)
-							fd_relay = client_to_server[fd]
-							sk_relay = fd_to_socket[fd_relay]
-							try:
-								"""relaying request"""
-								logging.info("forwarding request from client {} to server {}".format(fd, fd_relay))
-								sk_relay.sendall(request)  # send request to server
-							except Exception as ex:
-								print("connect error:{}".format(ex), file=sys.stderr)
-
+					forwardRequest(fd, sock, request)
 
 				else:  # recv == 0
 					""" client close """
