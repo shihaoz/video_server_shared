@@ -23,3 +23,4 @@ def time2nd(fd_to_tp, fd, size_bits):
 	T_cur = common.ALPHA*(T_new) + (1 - common.ALPHA) * T_cur
 	fd_to_tp[fd] = (T_cur, 0)
 	logging.info("sock: {}| throughput: {}".format(fd, T_cur))
+

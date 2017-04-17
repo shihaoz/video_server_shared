@@ -1,0 +1,40 @@
+use struct.pack/unpack to convert byte <-> value
+
+
+** DNS Header
+ID: 2 byte
+ :[
+QR: 1 bit 0: query, 1: response
+Opcode: 4 bit, 0=standard query
+AA: 1 bit 0 in query, 1 in response
+TC: 1 bit 0 not truncated
+RD: 1 bit 0 in all
+RA: 1 bit 0 in all
+Z: 3 bit 0 in all
+RCODE: 4 bit
+ 0 = no error
+ 1 = format error
+]
+below 2 byte each:
+QDCOUNT = # question  
+ANCOUNT = # answer
+NSCOUNT = 0
+ARCOUNT = 0
+
+** DNS Question
+QNAME:sequence of 1byte(indicating length n) + n byte name + ... + 1
+byte (length 0)
+2 bytes
+QTYPE: set to 1
+QCLASS: set to 1
+
+** DNS Record
+NAME: 2 byte an offset that points to the question its answering,
+ mask with 16383 to get offset in message.
+TYPE: set to 1 2bytes
+CLASS: set to 1 2bytes
+TTL: set to 0 4bytes unsigned int
+RDLENGTH: 2bytes, length of RDATA in bytes, should always = 4 for 
+RDATA:
+4 byte internet ip address, each byte individually interpret to be a
+ int
