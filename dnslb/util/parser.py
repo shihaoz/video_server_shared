@@ -5,7 +5,7 @@ import sys
 """ all byte/bit->val function returns (value, nextidx) """
 """ all val -> byte/bit function returns bytes """
 
-logging.basicConfig(filename="dns.log",filemode='w')
+logging.basicConfig(filename="dns.log", filemode='w')
 
 
 def byte2_to_short(bytes, idx):
@@ -22,7 +22,7 @@ def short_to_byte2(val, unsigned=True):
 
 def byte1_to_short(bytes, idx):
 	""" convert 1 byte to int """
-	return (struct.unpack(">B", bytes[idx])[0], idx+1)
+	return (bytes[idx], idx+1)
 
 
 def short_to_byte1(val):
@@ -35,6 +35,11 @@ def byte_to_string(bytes, idx, length):
 	return (bytes[idx:idx+length].decode('utf-8'), idx+length)
 
 
+def string_to_byte(query):
+	""" convert query to bytes using utf-8 encoding """
+	return query.encode('utf-8')
+
+
 def int_to_bit(val, length):
 	""" convert integer to string of binary of length """
 	a = '{:b}'.format(val)
@@ -43,9 +48,88 @@ def int_to_bit(val, length):
 	return a
 
 
+class DNSRecord:
+	def __init__(self):
+		""" declare variables """
+		
+	
+
+class DNSQuestion:
+	def __init__(self):
+		""" declare variables """
+		self.QNAME = ""  # target domain name x bytes
+		self.QTYPE = 0  # type of query 2 bytes always 1 (A record)
+		self.QCLASS = 0  # class of query 2 bytes always 1 (IP addr)
+
+	def getQuestion(self, bytes, idx=0):
+		"""
+		get question info from bytes
+		@return -1=Error idx=OK
+		"""
+		remain_length, idx = byte1_to_short(bytes, idx)
+		while remain_length > 0:
+			tmp, idx = byte_to_string(bytes, idx, remain_length)
+			self.QNAME += tmp + "."
+			remain_length, idx = byte1_to_short(bytes, idx)
+		print('getQuestion:: domain name :{}'.format(self.QNAME))
+		logging.info('getQuestion:: domain name :{}'.format(self.QNAME))
+		# getting QTYPE
+		self.QTYPE, idx = byte2_to_short(bytes, idx)
+		if self.QTYPE != 1:
+			print(
+				"getQuestion:: wrong QTYPE:{}".format(self.QTYPE),
+				file=sys.stderr
+			)
+			logging.debug(
+				"getQuestion:: wrong QTYPE:{}".format(self.QTYPE),
+				file=sys.stderr
+			)
+			return -1
+		print("getQuestion:: QTYPE :{}".format(self.QTYPE))
+		logging.info("getQuestion:: QTYPE :{}".format(self.QTYPE))
+		# getting QCLASS
+		self.QCLASS, idx = byte2_to_short(bytes, idx)
+		if self.QCLASS != 1:
+			print(
+				"getQuestion:: wrong QCLASS:{}".format(self.QCLASS),
+				file=sys.stderr
+			)
+			logging.debug(
+				"getQuestion:: wrong QCLASS:{}".format(self.QCLASS),
+				file=sys.stderr
+			)
+			return -1
+		print("getQuestion:: QCLASS :{}".format(self.QCLASS))
+		logging.info("getQuestion:: QCLASS :{}".format(self.QCLASS))
+		return idx
+
+	def buildQuestion(self, domain_name, qtype, qclass):
+		""" build a DNS question
+		  @return: None=error, byte string=OK
+		"""
+		questions = b''
+		labels = domain_name.split('.')
+		for label in labels:
+			if len(label) > 255 or len(label) == 0:
+				print("label length wrong: {}".format(labels), file=sys.stderr)
+				logging.debug("label length wrong: {}".format(labels))
+				return None
+			questions += short_to_byte1(len(label))
+			questions += string_to_byte(label)
+		# assign the zero length octet for null label
+		questions += short_to_byte1(0)
+		logging.info("buildQuestion:: domain name:{}".format(questions))
+		questions += short_to_byte2(qtype)
+		logging.info("buildQuestion:: qtype:{}".format(qtype))
+		questions += short_to_byte2(qclass)
+		logging.info("buildQuestion:: qclass:{}".format(qclass))
+		logging.info("buildQuestion:: DNSquestion:\n{}".format(questions))
+		return questions
+
+
 class DNSHeader:
 	def __init__(self):
-		""" declare component """
+		""" declare variables """
 		self.ID = 0  # 2 byte
 		self.QR = 0  # 1 bit, 0=query, 1=response
 		self.Opcode = 0  # 4 bit always 0=standard query
@@ -60,13 +144,11 @@ class DNSHeader:
 		self.NSCOUNT = 0  # 2 byte always 0
 		self.ARCOUNT = 0  # 2 byte always 0
 
-	def getHeader(self, bytes):
-		""" get header info from bytes, used when receiving request"""
-		if len(bytes) != 12:
-			print('getHeader:: bytes number {} != 12'.format(len(bytes)))
-			logging.debug('getHeader:: bytes number {} != 12'.format(len(bytes)))
-			return False
-		idx = 0
+	def getHeader(self, bytes, idx=0):
+		"""
+		get header info from bytes, used when receiving request
+		@return -1=error idx=ok
+		"""
 		self.ID, idx = byte2_to_short(bytes, idx)
 		logging.info('ID:{}'.format(self.ID))
 		# deal with flags later
@@ -79,6 +161,7 @@ class DNSHeader:
 		self.RA = ((flags & int('0'*8+'1'*8, 2)) >> (7))
 		self.Z = ((flags & int('0'*9+'1'*7, 2)) >> (4))
 		self.RCODE = (flags & int('0'*12+'1'*4, 2))
+		# get rest of the fields
 		self.QDCOUNT, idx = byte2_to_short(bytes, idx)
 		self.ANCOUNT, idx = byte2_to_short(bytes, idx)
 		self.NSCOUNT, idx = byte2_to_short(bytes, idx)
@@ -87,7 +170,7 @@ class DNSHeader:
 			"QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
 			.format(self.QDCOUNT, self.ANCOUNT, self.NSCOUNT, self.ARCOUNT)
 		)
-		if (
+		if (  # error handling
 		    self.QDCOUNT != 1 or
 		    self.ANCOUNT != 0 or
 		    self.NSCOUNT != 0 or
@@ -103,12 +186,15 @@ class DNSHeader:
 				"QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
 				.format(self.QDCOUNT, self.ANCOUNT, self.NSCOUNT, self.ARCOUNT)
 			)
-			return False
+			return -1
 
-		return True
+		return idx
 
 	def buildHeader(self, ID, flags, QDCOUNT, ANCOUNT, NSCOUNT, ARCOUNT):
-		""" given parameter, build out the header header """
+		"""
+		given parameter, build out the header
+		@return: None=error, byte string=OK
+		"""
 		if (
 			len(flags) != 8 or
 			ID is None or
@@ -122,6 +208,7 @@ class DNSHeader:
 				"ID:{}, flags:{}, QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
 				.format(ID, flags, QDCOUNT, ANCOUNT, NSCOUNT, ARCOUNT)
 			)
+			return None
 		header = b''
 		header += short_to_byte2(ID)
 		# number of bit for each flag
@@ -139,6 +226,7 @@ class DNSHeader:
 		if len(header) != 12:
 			logging.debug("buildHeader:: ERROR size != 12 bytes")
 			print("buildHeader:: ERROR size != 12 bytes", file=sys.stderr)
-			return False
+			return None
 		logging.info("buildHeader produces:{}".format(header))
 		return header
+

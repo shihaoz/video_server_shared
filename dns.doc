@@ -37,4 +37,4 @@ TTL: set to 0 4bytes unsigned int
 RDLENGTH: 2bytes, length of RDATA in bytes, should always = 4 for 
 RDATA:
 4 byte internet ip address, each byte individually interpret to be a
- int
+int
