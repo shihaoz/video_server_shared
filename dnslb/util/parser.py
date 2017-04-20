@@ -20,6 +20,16 @@ def short_to_byte2(val, unsigned=True):
 	return struct.pack(">h", val)
 
 
+def byte4_to_int(bytes, idx):
+	""" convert 4 bytes to int """
+	return (struct.unpack(">I", bytes[idx:idx+4])[0], idx+4)
+
+
+def int_to_byte4(val):
+	""" convert integer to 4 bytes """
+	return struct.pack(">I", val)
+
+
 def byte1_to_short(bytes, idx):
 	""" convert 1 byte to int """
 	return (bytes[idx], idx+1)
@@ -48,11 +58,121 @@ def int_to_bit(val, length):
 	return a
 
 
+def get_qname(bytes, idx):
+	""" get the qname from bytes """
+	remain_length, idx = byte1_to_short(bytes, idx)
+	qname = ""
+	while remain_length > 0:
+		tmp, idx = byte_to_string(bytes, idx, remain_length)
+		qname += tmp + "."
+		remain_length, idx = byte1_to_short(bytes, idx)
+	return qname, idx
+
+
+def build_qname(domain):
+	""" build from domain name to byte strings"""
+	labels = domain.split('.')
+	questions = b""
+	for label in labels:
+		if len(label) > 255 or len(label) == 0:
+			print("label length wrong: {}".format(labels), file=sys.stderr)
+			logging.debug("label length wrong: {}".format(labels))
+			return None
+		questions += short_to_byte1(len(label))
+		questions += string_to_byte(label)
+	# assign the zero length octet for null label
+	questions += short_to_byte1(0)
+	return questions
+
+
 class DNSRecord:
 	def __init__(self):
 		""" declare variables """
-		
-	
+		self.NAME = 0  # domain name it refers to
+		self.TYPE = 0  # resource type 2 bytes always 1
+		self.CLASS = 0  # class of data 2 bytes always 1
+		self.TTL = 0  # cache interval 4 bytes always 0
+		self.RDLENGTH = 0  # length of RDATA, 2 bytes
+		self.RDATA = ""  # resource response; always 4 octet ip address
+
+	def getRecord(self, bytes, idx=0):
+		"""
+		get record info from bytes
+		@return -1=ERROR idx=OK
+		"""
+		name_format, idx = byte2_to_short(bytes, idx)
+		if (name_format >> 14) == 3:
+			""" ptr format """
+			ptr = (name_format & ((1 << 14) - 1))
+			self.NAME, _ = get_qname(bytes, ptr)
+		else:
+			self.NAME, idx = get_qname(bytes, idx)
+		print('getRecord:: NAME:{}'.format(self.NAME))
+		self.TYPE, idx = byte2_to_short(bytes, idx)
+		if self.TYPE != 1:
+			print(
+				"getRecord:: TYPE {} != 1".format(self.TYPE),
+				file=sys.stderr
+			)
+			logging.debug(
+				"getRecord:: TYPE {} != 1".format(self.TYPE)
+			)
+		self.CLASS, idx = byte2_to_short(bytes, idx)
+		if self.CLASS != 1:
+			print(
+				"getRecord:: CLASS {} != 1".format(self.CLASS),
+				file=sys.stderr
+			)
+			logging.debug(
+				"getRecord:: CLASS {} != 1".format(self.CLASS)
+			)
+		self.TTL, idx = byte4_to_int(bytes, idx)
+		if self.TTL != 1:
+			print(
+				"getRecord:: TTL {} != 1".format(self.TTL),
+				file=sys.stderr
+			)
+			logging.debug(
+				"getRecord:: TTL {} != 1".format(self.TTL)
+			)
+		self.RDLENGTH, idx = byte2_to_short(bytes, idx)
+		if self.RDLENGTH != 4:
+			print(
+				'getRecord:: RDLENGTH {} != 4'
+				.format(self.RDLENGTH), file=sys.stderr
+			)
+			logging.debug(
+				'getRecord:: RDLENGTH {} != 4'
+				.format(self.RDLENGTH)
+			)
+			return -1
+		for i in range(4):
+			self.RDATA += "{}.".format(bytes[idx])
+			idx += 1
+		print("getRecord: answer ip:{}".format(self.RDATA))
+		logging.info("getRecord: answer ip:{}".format(self.RDATA))
+		return idx
+
+	def buildRecord(self, domain_name, data):
+		"""
+		build the record
+		@return None=ERROR byte string=OK
+		"""
+		record = b""
+		qname = build_qname(domain_name)
+		if qname is None:
+			return None
+		record += qname
+		record += short_to_byte2(1)  # type
+		record += short_to_byte2(1)  # class
+		record += int_to_byte4(0)  # TTL
+		record += short_to_byte2(len(4))  # always 4 for ip addr
+		for part in data.split('.'):
+			record += short_to_byte1(int(part))
+		print("buildRecord: record:\n{}".format(record))
+		logging.info("buildRecord: record:\n{}".format(record))
+		return record
+
 
 class DNSQuestion:
 	def __init__(self):
@@ -66,11 +186,7 @@ class DNSQuestion:
 		get question info from bytes
 		@return -1=Error idx=OK
 		"""
-		remain_length, idx = byte1_to_short(bytes, idx)
-		while remain_length > 0:
-			tmp, idx = byte_to_string(bytes, idx, remain_length)
-			self.QNAME += tmp + "."
-			remain_length, idx = byte1_to_short(bytes, idx)
+		self.QNAME, idx = get_qname(bytes, idx)
 		print('getQuestion:: domain name :{}'.format(self.QNAME))
 		logging.info('getQuestion:: domain name :{}'.format(self.QNAME))
 		# getting QTYPE
@@ -108,16 +224,10 @@ class DNSQuestion:
 		  @return: None=error, byte string=OK
 		"""
 		questions = b''
-		labels = domain_name.split('.')
-		for label in labels:
-			if len(label) > 255 or len(label) == 0:
-				print("label length wrong: {}".format(labels), file=sys.stderr)
-				logging.debug("label length wrong: {}".format(labels))
-				return None
-			questions += short_to_byte1(len(label))
-			questions += string_to_byte(label)
-		# assign the zero length octet for null label
-		questions += short_to_byte1(0)
+		qname = build_qname(domain_name)
+		if qname is None:
+			return None
+		questions += qname
 		logging.info("buildQuestion:: domain name:{}".format(questions))
 		questions += short_to_byte2(qtype)
 		logging.info("buildQuestion:: qtype:{}".format(qtype))
@@ -172,7 +282,6 @@ class DNSHeader:
 		)
 		if (  # error handling
 		    self.QDCOUNT != 1 or
-		    self.ANCOUNT != 0 or
 		    self.NSCOUNT != 0 or
 		    self.ARCOUNT != 0
 		):

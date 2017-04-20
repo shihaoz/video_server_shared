@@ -31,6 +31,16 @@ QCLASS: set to 1
 ** DNS Record
 NAME: 2 byte an offset that points to the question its answering,
  mask with 16383 to get offset in message.
+: This name reflects the QNAME of the question i.e. any may take one of
+: TWO formats. The first format is the label format defined for QNAME
+: above. The second format is a pointer (in the interests of data
+: compression which to fair to the original authors was far more
+: important then than now). A pointer is an unsigned 16-bit value with
+: the following format (the *top two bits of 11* indicate the pointer
+: format):
+: The offset in octets (bytes) from the start of the whole message. Must
+: point to a label format record to derive name length.
+
 TYPE: set to 1 2bytes
 CLASS: set to 1 2bytes
 TTL: set to 0 4bytes unsigned int
