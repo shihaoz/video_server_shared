@@ -1,11 +1,9 @@
-import logging
+from common import log_print, log_err
 import struct
 import sys
 
 """ all byte/bit->val function returns (value, nextidx) """
 """ all val -> byte/bit function returns bytes """
-
-logging.basicConfig(filename="dns.log", filemode='w')
 
 
 def byte2_to_short(bytes, idx):
@@ -75,8 +73,7 @@ def build_qname(domain):
 	questions = b""
 	for label in labels:
 		if len(label) > 255 or len(label) == 0:
-			print("label length wrong: {}".format(labels), file=sys.stderr)
-			logging.debug("label length wrong: {}".format(labels))
+			log_err("label length wrong: {}".format(labels), file=sys.stderr)
 			return None
 		questions += short_to_byte1(len(label))
 		questions += string_to_byte(label)
@@ -107,50 +104,32 @@ class DNSRecord:
 			self.NAME, _ = get_qname(bytes, ptr)
 		else:
 			self.NAME, idx = get_qname(bytes, idx)
-		print('getRecord:: NAME:{}'.format(self.NAME))
+		log_print('getRecord:: NAME:{}'.format(self.NAME))
 		self.TYPE, idx = byte2_to_short(bytes, idx)
 		if self.TYPE != 1:
-			print(
-				"getRecord:: TYPE {} != 1".format(self.TYPE),
-				file=sys.stderr
-			)
-			logging.debug(
+			log_err(
 				"getRecord:: TYPE {} != 1".format(self.TYPE)
 			)
 		self.CLASS, idx = byte2_to_short(bytes, idx)
 		if self.CLASS != 1:
-			print(
-				"getRecord:: CLASS {} != 1".format(self.CLASS),
-				file=sys.stderr
-			)
-			logging.debug(
+			log_err(
 				"getRecord:: CLASS {} != 1".format(self.CLASS)
 			)
 		self.TTL, idx = byte4_to_int(bytes, idx)
 		if self.TTL != 1:
-			print(
-				"getRecord:: TTL {} != 1".format(self.TTL),
-				file=sys.stderr
-			)
-			logging.debug(
+			log_err(
 				"getRecord:: TTL {} != 1".format(self.TTL)
 			)
 		self.RDLENGTH, idx = byte2_to_short(bytes, idx)
 		if self.RDLENGTH != 4:
-			print(
-				'getRecord:: RDLENGTH {} != 4'
-				.format(self.RDLENGTH), file=sys.stderr
-			)
-			logging.debug(
-				'getRecord:: RDLENGTH {} != 4'
-				.format(self.RDLENGTH)
+			log_err(
+				'getRecord:: RDLENGTH {} != 4'.format(self.RDLENGTH)
 			)
 			return -1
 		for i in range(4):
 			self.RDATA += "{}.".format(bytes[idx])
 			idx += 1
-		print("getRecord: answer ip:{}".format(self.RDATA))
-		logging.info("getRecord: answer ip:{}".format(self.RDATA))
+		log_print("getRecord: answer ip:{}".format(self.RDATA))
 		return idx
 
 	def buildRecord(self, domain_name, data):
@@ -169,8 +148,7 @@ class DNSRecord:
 		record += short_to_byte2(len(4))  # always 4 for ip addr
 		for part in data.split('.'):
 			record += short_to_byte1(int(part))
-		print("buildRecord: record:\n{}".format(record))
-		logging.info("buildRecord: record:\n{}".format(record))
+		log_print("buildRecord: record:\n{}".format(record))
 		return record
 
 
@@ -187,36 +165,23 @@ class DNSQuestion:
 		@return -1=Error idx=OK
 		"""
 		self.QNAME, idx = get_qname(bytes, idx)
-		print('getQuestion:: domain name :{}'.format(self.QNAME))
-		logging.info('getQuestion:: domain name :{}'.format(self.QNAME))
+		log_print('getQuestion:: domain name :{}'.format(self.QNAME))
 		# getting QTYPE
 		self.QTYPE, idx = byte2_to_short(bytes, idx)
 		if self.QTYPE != 1:
-			print(
-				"getQuestion:: wrong QTYPE:{}".format(self.QTYPE),
-				file=sys.stderr
-			)
-			logging.debug(
-				"getQuestion:: wrong QTYPE:{}".format(self.QTYPE),
-				file=sys.stderr
+			log_err(
+				"getQuestion:: wrong QTYPE:{}".format(self.QTYPE)
 			)
 			return -1
-		print("getQuestion:: QTYPE :{}".format(self.QTYPE))
-		logging.info("getQuestion:: QTYPE :{}".format(self.QTYPE))
+		log_print("getQuestion:: QTYPE :{}".format(self.QTYPE))
 		# getting QCLASS
 		self.QCLASS, idx = byte2_to_short(bytes, idx)
 		if self.QCLASS != 1:
-			print(
-				"getQuestion:: wrong QCLASS:{}".format(self.QCLASS),
-				file=sys.stderr
-			)
-			logging.debug(
-				"getQuestion:: wrong QCLASS:{}".format(self.QCLASS),
-				file=sys.stderr
+			log_err(
+				"getQuestion:: wrong QCLASS:{}".format(self.QCLASS)
 			)
 			return -1
-		print("getQuestion:: QCLASS :{}".format(self.QCLASS))
-		logging.info("getQuestion:: QCLASS :{}".format(self.QCLASS))
+		log_print("getQuestion:: QCLASS :{}".format(self.QCLASS))
 		return idx
 
 	def buildQuestion(self, domain_name, qtype, qclass):
@@ -228,12 +193,12 @@ class DNSQuestion:
 		if qname is None:
 			return None
 		questions += qname
-		logging.info("buildQuestion:: domain name:{}".format(questions))
+		log_print("buildQuestion:: domain name:{}".format(questions))
 		questions += short_to_byte2(qtype)
-		logging.info("buildQuestion:: qtype:{}".format(qtype))
+		log_print("buildQuestion:: qtype:{}".format(qtype))
 		questions += short_to_byte2(qclass)
-		logging.info("buildQuestion:: qclass:{}".format(qclass))
-		logging.info("buildQuestion:: DNSquestion:\n{}".format(questions))
+		log_print("buildQuestion:: qclass:{}".format(qclass))
+		log_print("buildQuestion:: DNSquestion:\n{}".format(questions))
 		return questions
 
 
@@ -260,7 +225,7 @@ class DNSHeader:
 		@return -1=error idx=ok
 		"""
 		self.ID, idx = byte2_to_short(bytes, idx)
-		logging.info('ID:{}'.format(self.ID))
+		log_print('ID:{}'.format(self.ID))
 		# deal with flags later
 		flags, idx = byte2_to_short(bytes, idx)
 		self.QR = (flags >> 15)  # shift 15 bits off
@@ -276,7 +241,7 @@ class DNSHeader:
 		self.ANCOUNT, idx = byte2_to_short(bytes, idx)
 		self.NSCOUNT, idx = byte2_to_short(bytes, idx)
 		self.ARCOUNT, idx = byte2_to_short(bytes, idx)
-		logging.info(
+		log_print(
 			"QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
 			.format(self.QDCOUNT, self.ANCOUNT, self.NSCOUNT, self.ARCOUNT)
 		)
@@ -285,13 +250,8 @@ class DNSHeader:
 		    self.NSCOUNT != 0 or
 		    self.ARCOUNT != 0
 		):
-			print('getHeader:: ERROR: count is wrong')
-			logging.info('getHeader:: ERROR: count is wrong')
-			print(
-				"QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
-				.format(self.QDCOUNT, self.ANCOUNT, self.NSCOUNT, self.ARCOUNT)
-			)
-			logging.debug(
+			log_print('getHeader:: ERROR: count is wrong')
+			log_err(
 				"QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
 				.format(self.QDCOUNT, self.ANCOUNT, self.NSCOUNT, self.ARCOUNT)
 			)
@@ -312,8 +272,8 @@ class DNSHeader:
 			NSCOUNT is None or
 			ARCOUNT is None
 		):
-			print('buildHeader: ERROR in input')
-			logging.debug(
+			log_err(
+				'buildHeader: ERROR in input'
 				"ID:{}, flags:{}, QDCOUNT:{}, ANCOUNT:{}, NSCOUNT:{}, ARCOUNT:{}"
 				.format(ID, flags, QDCOUNT, ANCOUNT, NSCOUNT, ARCOUNT)
 			)
@@ -325,7 +285,7 @@ class DNSHeader:
 		holder = ''
 		for i in range(len(flags_bit)):
 			holder += int_to_bit(flags[i], flags_bit[i])
-		logging.info('flags:{}'.format(holder))
+		log_print('flags:{}'.format(holder))
 		header += short_to_byte1(int(holder[:8], 2))
 		header += short_to_byte1(int(holder[8:], 2))
 		header += short_to_byte2(QDCOUNT)
@@ -333,9 +293,8 @@ class DNSHeader:
 		header += short_to_byte2(NSCOUNT)
 		header += short_to_byte2(ARCOUNT)
 		if len(header) != 12:
-			logging.debug("buildHeader:: ERROR size != 12 bytes")
-			print("buildHeader:: ERROR size != 12 bytes", file=sys.stderr)
+			log_err("buildHeader:: ERROR size != 12 bytes")
 			return None
-		logging.info("buildHeader produces:{}".format(header))
+		log_print("buildHeader produces:{}".format(header))
 		return header
 
